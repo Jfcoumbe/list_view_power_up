@@ -80,140 +80,118 @@ var GLITCH_ICON = './images/glitch.svg';
 var WHITE_ICON = './images/icon-white.svg';
 var GRAY_ICON = './images/icon-gray.svg';
 
-var randomBadgeColor = function() {
-  return ['green', 'yellow', 'red', 'none'][Math.floor(Math.random() * 4)];
+// Retrieve native checklist data available in the card context
+var getCardChecklists = function(t){
+  return t.card('checklists')
+    .then(function(card){
+      return (card && card.checklists) ? card.checklists : [];
+    })
+    .catch(function(error){
+      console.error('Error reading card checklists:', error);
+      return [];
+    });
 };
 
-// Helper function to get Trello API token
-var getToken = function(t){
-  return t.get('member', 'private', 'token');
-};
+var summarizeChecklists = function(checklists){
+  var summary = {
+    total: 0,
+    completed: 0,
+    items: []
+  };
 
-// Hardcoded API key - Get your key at https://trello.com/app-key
-var TRELLO_API_KEY = 'ff6db58c1ec8ac1df906ae5f2d39d19d';
+  checklists.forEach(function(checklist){
+    var items = checklist.checkItems || [];
 
-// Helper function to get API key
-var getApiKey = function(t){
-  return t.get('organization', 'private', 'apiKey')
-    .then(function(apiKey){
-      // If not set at org level, try board level, fallback to hardcoded
-      if (!apiKey) {
-        return t.get('board', 'private', 'apiKey')
-          .then(function(boardKey){
-            return boardKey || TRELLO_API_KEY;
-          });
+    items.forEach(function(item){
+      summary.total += 1;
+      if (item.state === 'complete') {
+        summary.completed += 1;
       }
-      return apiKey;
+
+      summary.items.push({
+        name: item.name || '',
+        state: item.state,
+        checklistName: checklist.name || ''
+      });
     });
+  });
+
+  return summary;
 };
 
-// Helper function to fetch checklists from Trello API
-var fetchChecklists = function(cardId, apiKey, token){
-  return fetch('https://api.trello.com/1/cards/' + cardId + '/checklists?checkItems=all&key=' + apiKey + '&token=' + token)
-    .then(function(response){
-      return response.json();
-    });
+var truncateText = function(text, length){
+  if (text.length <= length) {
+    return text;
+  }
+  return text.substring(0, length - 3) + '...';
 };
 
 var getChecklistBadges = function(t){
-  return Promise.all([
-    t.card('id'),
-    getToken(t),
-    getApiKey(t)
-  ])
-  .then(function(results){
-    var cardId = results[0].id;
-    var token = results[1];
-    var apiKey = results[2];
-
-    if (!token || !apiKey) {
-      // No token or API key, return empty badges
-      return [];
-    }
-
-    // Fetch checklists from Trello API
-    return fetchChecklists(cardId, apiKey, token)
-      .then(function(checklists){
-        var badges = [];
-
-        // Loop through each checklist
-        checklists.forEach(function(checklist){
-          // Loop through each checklist item
-          if (checklist.checkItems && checklist.checkItems.length > 0) {
-            checklist.checkItems.forEach(function(item){
-              var icon = item.state === 'complete' ? '✓' : '☐';
-              var color = item.state === 'complete' ? 'green' : null;
-              var itemName = item.name.length > 30 ? item.name.substring(0, 27) + '...' : item.name;
-
-              badges.push({
-                text: icon + ' ' + itemName,
-                color: color,
-                icon: GRAY_ICON
-              });
-            });
-          }
-        });
-
-        return badges;
-      })
-      .catch(function(error){
-        console.error('Error fetching checklists:', error);
+  return getCardChecklists(t)
+    .then(function(checklists){
+      if (!checklists.length) {
         return [];
+      }
+
+      var summary = summarizeChecklists(checklists);
+
+      if (!summary.total) {
+        return [{
+          text: 'No checklist items yet',
+          icon: GRAY_ICON
+        }];
+      }
+
+      var badges = [{
+        text: summary.completed + '/' + summary.total + ' complete',
+        color: summary.completed === summary.total ? 'green' : null,
+        icon: GRAY_ICON
+      }];
+
+      var orderedItems = summary.items.slice().sort(function(a, b){
+        if (a.state === b.state) {
+          return a.name.localeCompare(b.name);
+        }
+        return a.state === 'complete' ? 1 : -1; // incomplete first
       });
-  });
+
+      orderedItems.slice(0, 2).forEach(function(item){
+        var prefix = item.state === 'complete' ? '✓' : '☐';
+        var text = truncateText(item.name || '', 30);
+
+        badges.push({
+          text: prefix + ' ' + text,
+          color: item.state === 'complete' ? 'green' : null,
+          icon: GRAY_ICON
+        });
+      });
+
+      return badges;
+    });
 };
 
-var getBadges = function(t){
-  return t.card('name')
-  .get('name')
-  .then(function(cardName){
-    console.log('We just loaded the card name for fun: ' + cardName);
+var getChecklistDetailBadges = function(t){
+  return getCardChecklists(t)
+    .then(function(checklists){
+      if (!checklists.length) {
+        return [];
+      }
 
-    return [{
-      // dynamic badges can have their function rerun after a set number
-      // of seconds defined by refresh. Minimum of 10 seconds.
-      dynamic: function(){
-        // we could also return a Promise that resolves to this as well if we needed to do something async first
+      var detailBadges = checklists.map(function(checklist){
+        var items = checklist.checkItems || [];
+        var total = items.length;
+        var completed = items.filter(function(item){ return item.state === 'complete'; }).length;
+
         return {
-          title: 'Detail Badge', // for detail badges only
-          text: 'Dynamic ' + (Math.random() * 100).toFixed(0).toString(),
-          icon: GRAY_ICON, // for card front badges only
-          color: randomBadgeColor(),
-          refresh: 10 // in seconds
+          title: checklist.name || 'Checklist',
+          text: completed + '/' + total + ' complete',
+          icon: GRAY_ICON,
+          color: total && completed === total ? 'green' : null
         };
-      }
-    }, {
-      // its best to use static badges unless you need your badges to refresh
-      // you can mix and match between static and dynamic
-      title: 'Detail Badge', // for detail badges only
-      text: 'Static',
-      icon: GRAY_ICON, // for card front badges only
-      color: null
-    }, {
-      // card detail badges (those that appear on the back of cards)
-      // also support callback functions so that you can open for example
-      // open a popup on click
-      title: 'Popup Detail Badge', // for detail badges only
-      text: 'Popup',
-      icon: GRAY_ICON, // for card front badges only
-      callback: function(context) { // function to run on click
-        return context.popup({
-          title: 'Card Detail Badge Popup',
-          url: './settings.html',
-          height: 184 // we can always resize later, but if we know the size in advance, its good to tell Trello
-        });
-      }
-    }, {
-      // or for simpler use cases you can also provide a url
-      // when the user clicks on the card detail badge they will
-      // go to a new tab at that url
-      title: 'URL Detail Badge', // for detail badges only
-      text: 'URL',
-      icon: GRAY_ICON, // for card front badges only
-      url: 'https://trello.com/home',
-      target: 'Trello Landing Page' // optional target for above url
-    }];
-  });
+      });
+
+      return detailBadges;
+    });
 };
 
 var boardButtonCallback = function(t){
@@ -425,7 +403,7 @@ TrelloPowerUp.initialize({
     }];
   },
   'card-detail-badges': function(t, options) {
-    return getBadges(t);
+    return getChecklistDetailBadges(t);
   },
   'card-from-url': function(t, options) {
     // options.url has the url in question
@@ -460,7 +438,7 @@ TrelloPowerUp.initialize({
   },
   'card-back-section': function(t, options){
     return {
-      title: 'Checklist Manager',
+      title: 'Checklists Overview',
       icon: GRAY_ICON,
       content: {
         type: 'iframe',
@@ -490,46 +468,10 @@ TrelloPowerUp.initialize({
       
   */
   'authorization-status': function(t, options){
-    // Return a promise that resolves to an object with a boolean property 'authorized' of true or false
-    // The boolean value determines whether your Power-Up considers the user to be authorized or not.
-    
-    // When the value is false, Trello will show the user an "Authorize Account" options when
-    // they click on the Power-Up's gear icon in the settings. The 'show-authorization' capability
-    // below determines what should happen when the user clicks "Authorize Account"
-    
-    // For instance, if your Power-Up requires a token to be set for the member you could do the following:
-    return t.get('member', 'private', 'token')
-    .then(function(token){
-      if(token){
-        return { authorized: true };
-      }
-      return { authorized: false };
-    });
-    // You can also return the object synchronously if you know the answer synchronously.
+    return { authorized: true };
   },
   'show-authorization': function(t, options){
-    // Returns what to do when a user clicks the 'Authorize Account' link from the Power-Up gear icon
-    // which shows when 'authorization-status' returns { authorized: false }.
-
-    // The API key is defined at the top of this file as TRELLO_API_KEY
-    // Get your key at: https://trello.com/app-key
-
-    // In this case we'll open a popup to kick off the authorization flow.
-    if (TRELLO_API_KEY) {
-      // Store the API key so we can use it later
-      return t.set('board', 'private', 'apiKey', TRELLO_API_KEY)
-        .then(function(){
-          return t.popup({
-            title: 'Authorize Checklist Power-Up',
-            args: { apiKey: TRELLO_API_KEY }, // Pass in API key to the iframe
-            url: './authorize.html',
-            height: 200,
-          });
-        });
-    } else {
-      console.log("🙈 Looks like you need to add your API key to the project!");
-      console.log("Get your API key at: https://trello.com/app-key");
-    }
+    return { authorized: true };
   }
 });
 

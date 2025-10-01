@@ -38,7 +38,6 @@ When Power-Up opens popups, modals, or board bars, separate HTML files load in i
 - [board-bar.html](board-bar.html) / [js/board-bar.js](js/board-bar.js) - Top board banner
 - [settings.html](settings.html) / [js/settings.js](js/settings.js) - Settings popup
 - [section.html](section.html) / [js/section.js](js/section.js) - Attachment sections
-- [authorize.html](authorize.html) - OAuth authorization flow
 
 Each iframe JavaScript file:
 1. Gets iframe context via `TrelloPowerUp.iframe()`
@@ -63,7 +62,7 @@ The Power-Up SDK provides direct access to Trello data without REST API:
 - `t.cards(...)` - All cards on board
 - `t.member('id', 'fullName', 'username')` - Current user
 
-For full REST API access, implement authorization-status and show-authorization capabilities. User must authorize via OAuth, then store token with `t.set('member', 'private', 'token', tokenValue)`.
+For full REST API access, implement authorization-status and show-authorization capabilities. (The current implementation relies only on native Trello checklist data, so no OAuth flow is active.)
 
 ## Development Workflow
 
