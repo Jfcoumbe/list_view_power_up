@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        padding: 10px;
+        margin: 0;
+      }
+
+      .checklist-container {
+        margin-bottom: 20px;
+      }
+
+      .checklist-title {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: #172b4d;
+      }
+
+      .checklist-items {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .checklist-item {
+        display: flex;
+        align-items: flex-start;
+        padding: 6px 0;
+        cursor: pointer;
+      }
+
+      .checklist-item:hover {
+        background-color: #f4f5f7;
+      }
+
+      .checklist-item input[type="checkbox"] {
+        margin-right: 8px;
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+        margin-top: 2px;
+      }
+
+      .checklist-item-text {
+        flex: 1;
+        font-size: 14px;
+        color: #172b4d;
+        line-height: 20px;
+      }
+
+      .checklist-item-text.completed {
+        text-decoration: line-through;
+        color: #5e6c84;
+      }
+
+      .no-checklists {
+        color: #5e6c84;
+        font-size: 14px;
+        font-style: italic;
+        padding: 10px 0;
+      }
+
+      .loading {
+        color: #5e6c84;
+        font-size: 14px;
+        padding: 10px 0;
+      }
+
+      .error {
+        color: #eb5a46;
+        font-size: 14px;
+        padding: 10px 0;
+      }
+    </style>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <div id="content">
+      <div class="loading">Loading checklists...</div>
+    </div>
+    <script src="./js/checklist-front.js"></script>
+  </body>
+</html>

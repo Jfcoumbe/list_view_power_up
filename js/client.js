@@ -84,12 +84,88 @@ var randomBadgeColor = function() {
   return ['green', 'yellow', 'red', 'none'][Math.floor(Math.random() * 4)];
 };
 
+// Helper function to get Trello API token
+var getToken = function(t){
+  return t.get('member', 'private', 'token');
+};
+
+// Helper function to get API key
+var getApiKey = function(t){
+  return t.get('organization', 'private', 'apiKey')
+    .then(function(apiKey){
+      // If not set at org level, try board level, fallback to hardcoded
+      if (!apiKey) {
+        return t.get('board', 'private', 'apiKey')
+          .then(function(boardKey){
+            return boardKey || '';
+          });
+      }
+      return apiKey;
+    });
+};
+
+// Helper function to fetch checklists from Trello API
+var fetchChecklists = function(cardId, apiKey, token){
+  return fetch('https://api.trello.com/1/cards/' + cardId + '/checklists?checkItems=all&key=' + apiKey + '&token=' + token)
+    .then(function(response){
+      return response.json();
+    });
+};
+
+var getChecklistBadges = function(t){
+  return Promise.all([
+    t.card('id'),
+    getToken(t),
+    getApiKey(t)
+  ])
+  .then(function(results){
+    var cardId = results[0].id;
+    var token = results[1];
+    var apiKey = results[2];
+
+    if (!token || !apiKey) {
+      // No token or API key, return empty badges
+      return [];
+    }
+
+    // Fetch checklists from Trello API
+    return fetchChecklists(cardId, apiKey, token)
+      .then(function(checklists){
+        var badges = [];
+
+        // Loop through each checklist
+        checklists.forEach(function(checklist){
+          // Loop through each checklist item
+          if (checklist.checkItems && checklist.checkItems.length > 0) {
+            checklist.checkItems.forEach(function(item){
+              var icon = item.state === 'complete' ? '✓' : '☐';
+              var color = item.state === 'complete' ? 'green' : null;
+              var itemName = item.name.length > 30 ? item.name.substring(0, 27) + '...' : item.name;
+
+              badges.push({
+                text: icon + ' ' + itemName,
+                color: color,
+                icon: GRAY_ICON
+              });
+            });
+          }
+        });
+
+        return badges;
+      })
+      .catch(function(error){
+        console.error('Error fetching checklists:', error);
+        return [];
+      });
+  });
+};
+
 var getBadges = function(t){
   return t.card('name')
   .get('name')
   .then(function(cardName){
     console.log('We just loaded the card name for fun: ' + cardName);
-    
+
     return [{
       // dynamic badges can have their function rerun after a set number
       // of seconds defined by refresh. Minimum of 10 seconds.
@@ -328,7 +404,7 @@ TrelloPowerUp.initialize({
     }];
   },
   'card-badges': function(t, options){
-    return getBadges(t);
+    return getChecklistBadges(t);
   },
   'card-buttons': function(t, options) {
     return [{
@@ -379,6 +455,17 @@ TrelloPowerUp.initialize({
     // we can let Trello know like so:
     // throw t.NotHandled();
   },
+  'card-back-section': function(t, options){
+    return {
+      title: 'Checklist Manager',
+      icon: GRAY_ICON,
+      content: {
+        type: 'iframe',
+        url: t.signUrl('./checklist-front.html'),
+        height: 300
+      }
+    };
+  },
   'show-settings': function(t, options){
     // when a user clicks the gear icon by your Power-Up in the Power-Ups menu
     // what should Trello show. We highly recommend the popup in this case as
@@ -389,7 +476,7 @@ TrelloPowerUp.initialize({
       height: 184 // we can always resize later, but if we know the size in advance, its good to tell Trello
     });
   },
-  
+
   /*        
       
       🔑 Authorization Capabiltiies 🗝
@@ -420,23 +507,30 @@ TrelloPowerUp.initialize({
   'show-authorization': function(t, options){
     // Returns what to do when a user clicks the 'Authorize Account' link from the Power-Up gear icon
     // which shows when 'authorization-status' returns { authorized: false }.
-    
+
     // If we want to ask the user to authorize our Power-Up to make full use of the Trello API
     // you'll need to add your API from trello.com/app-key below:
-    let trelloAPIKey = '';
+    // Get your key at: https://trello.com/app-key
+    let trelloAPIKey = 'YOUR_TRELLO_API_KEY_HERE';
     // This key will be used to generate a token that you can pass along with the API key to Trello's
     // RESTful API. Using the key/token pair, you can make requests on behalf of the authorized user.
-    
+
     // In this case we'll open a popup to kick off the authorization flow.
-    if (trelloAPIKey) {
-      return t.popup({
-        title: 'My Auth Popup',
-        args: { apiKey: trelloAPIKey }, // Pass in API key to the iframe
-        url: './authorize.html', // Check out public/authorize.html to see how to ask a user to auth
-        height: 140,
-      });
+    if (trelloAPIKey && trelloAPIKey !== 'YOUR_TRELLO_API_KEY_HERE') {
+      // Store the API key so we can use it later
+      return t.set('board', 'private', 'apiKey', trelloAPIKey)
+        .then(function(){
+          return t.popup({
+            title: 'Authorize Checklist Power-Up',
+            args: { apiKey: trelloAPIKey }, // Pass in API key to the iframe
+            url: './authorize.html', // Check out public/authorize.html to see how to ask a user to auth
+            height: 140,
+          });
+        });
     } else {
       console.log("🙈 Looks like you need to add your API key to the project!");
+      console.log("Get your API key at: https://trello.com/app-key");
+      alert("Please add your Trello API key to js/client.js. Get it at: https://trello.com/app-key");
     }
   }
 });
