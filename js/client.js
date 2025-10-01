@@ -89,6 +89,9 @@ var getToken = function(t){
   return t.get('member', 'private', 'token');
 };
 
+// Hardcoded API key - Get your key at https://trello.com/app-key
+var TRELLO_API_KEY = 'ff6db58c1ec8ac1df906ae5f2d39d19d';
+
 // Helper function to get API key
 var getApiKey = function(t){
   return t.get('organization', 'private', 'apiKey')
@@ -97,7 +100,7 @@ var getApiKey = function(t){
       if (!apiKey) {
         return t.get('board', 'private', 'apiKey')
           .then(function(boardKey){
-            return boardKey || '';
+            return boardKey || TRELLO_API_KEY;
           });
       }
       return apiKey;
@@ -508,29 +511,24 @@ TrelloPowerUp.initialize({
     // Returns what to do when a user clicks the 'Authorize Account' link from the Power-Up gear icon
     // which shows when 'authorization-status' returns { authorized: false }.
 
-    // If we want to ask the user to authorize our Power-Up to make full use of the Trello API
-    // you'll need to add your API from trello.com/app-key below:
+    // The API key is defined at the top of this file as TRELLO_API_KEY
     // Get your key at: https://trello.com/app-key
-    let trelloAPIKey = 'ff6db58c1ec8ac1df906ae5f2d39d19d';
-    // This key will be used to generate a token that you can pass along with the API key to Trello's
-    // RESTful API. Using the key/token pair, you can make requests on behalf of the authorized user.
 
     // In this case we'll open a popup to kick off the authorization flow.
-    if (trelloAPIKey && trelloAPIKey !== 'ff6db58c1ec8ac1df906ae5f2d39d19d') {
+    if (TRELLO_API_KEY) {
       // Store the API key so we can use it later
-      return t.set('board', 'private', 'apiKey', trelloAPIKey)
+      return t.set('board', 'private', 'apiKey', TRELLO_API_KEY)
         .then(function(){
           return t.popup({
             title: 'Authorize Checklist Power-Up',
-            args: { apiKey: trelloAPIKey }, // Pass in API key to the iframe
-            url: './authorize.html', // Check out public/authorize.html to see how to ask a user to auth
-            height: 140,
+            args: { apiKey: TRELLO_API_KEY }, // Pass in API key to the iframe
+            url: './authorize.html',
+            height: 200,
           });
         });
     } else {
       console.log("🙈 Looks like you need to add your API key to the project!");
       console.log("Get your API key at: https://trello.com/app-key");
-      alert("Please add your Trello API key to js/client.js. Get it at: https://trello.com/app-key");
     }
   }
 });
