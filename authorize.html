@@ -19,7 +19,9 @@
 
       var apiKey = t.arg('apiKey'); // Passed in as an argument to our iframe
 
-      var trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=Checklist%20Power-Up&scope=read,write&key=${apiKey}&callback_method=fragment&return_url=${window.location.origin}%2Fauth-success.html`;
+      // Build an absolute return URL that keeps subdirectory paths intact
+      var returnUrl = new URL('auth-success.html', window.location.href).href;
+      var trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=Checklist%20Power-Up&scope=read,write&key=${apiKey}&callback_method=fragment&return_url=${encodeURIComponent(returnUrl)}`;
 
       var tokenLooksValid = function(token) {
         // If this returns false, the Promise won't resolve.
